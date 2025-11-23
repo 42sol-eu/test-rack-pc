@@ -1,0 +1,19 @@
+version: '3'
+
+dotenv:
+  - '../.env'
+  - './.env'
+  - './.env.local'
+
+vars:
+  GITLAB_DIR: .gitlab
+
+includes:
+  tasks: ../.tasks/taskfile.yaml
+  tasks: ./gitlab.taskfile.yaml
+
+tasks:
+  default:
+    desc: Show available GitLab CI tasks
+    cmds:
+      - task --list

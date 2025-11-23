@@ -1,0 +1,287 @@
+version: '3'
+
+vars:
+  TASKS_DIR: .tasks
+  PROJECT_NAME: '{{.PROJECT_NAME | default "test-rack-pc"}}'
+  BUILD_ENV: '{{.BUILD_ENV | default "development"}}'
+  BUILD_OUTPUT_DIR: '{{.BUILD_OUTPUT_DIR | default "dist"}}'
+  CI_REGISTRY_IMAGE: '{{.CI_REGISTRY_IMAGE | default "test-rack-pc"}}'
+  PUBLISH_TAG: '{{.PUBLISH_TAG | default "latest"}}'
+
+includes:
+  common: ./includes/common.yml
+
+tasks:
+  # Reusable CI/CD Functions
+  init:
+    desc: Initialize project environment and dependencies
+    cmds:
+      - echo "Initializing {{.PROJECT_NAME}} in {{.BUILD_ENV}} environment"
+      - mkdir -p {{.TASKS_DIR}}/{{.BUILD_OUTPUT_DIR}}
+      - mkdir -p {{.TASKS_DIR}}/{{.TASK_CACHE_DIR | default ".task-cache"}}
+      - mkdir -p {{.TASKS_DIR}}/logs
+      - cd {{.TASKS_DIR}}
+      - |
+        if [ ! -f "../.env.local" ]; then
+          echo "Creating local environment file"
+          cp ../.env.development ../.env.local
+          echo "Please update .env.local with your local settings"
+        fi
+      - echo "Project initialized successfully"
+      - cd ..
+
+  build:
+    desc: Build the project artifacts
+    deps: [init]
+    cmds:
+      - echo 'Building {{.PROJECT_NAME}} for {{.BUILD_ENV}}'
+      - echo 'Output directory {{.BUILD_OUTPUT_DIR}}'
+      - echo 'Registry image {{.CI_REGISTRY_IMAGE}}'
+      - |
+        case "{{.BUILD_ENV}}" in
+          "production")
+            echo "Building optimized production artifacts"
+            # Add production build commands here
+            ;;
+          "development")
+            echo "Building development artifacts"
+            # Add development build commands here
+            ;;
+          "ci")
+            echo "Building CI artifacts"
+            # Add CI build commands here
+            ;;
+          *)
+            echo "Building default artifacts"
+            ;;
+        esac
+      - echo "Build completed successfully"
+
+  publish:
+    desc: Publish built artifacts to registry
+    deps: [build]
+    cmds:
+      - echo 'Publishing {{.PROJECT_NAME}} to {{.CI_REGISTRY}}'
+      - echo 'Image {{.CI_REGISTRY_IMAGE}}:{{.PUBLISH_TAG}}'
+      - |
+        if [ -n "{{.CI_REGISTRY_PASSWORD}}" ] && [ -n "{{.CI_REGISTRY_USER}}" ]; then
+          echo "Logging into registry {{.CI_REGISTRY}}"
+          # echo "{{.CI_REGISTRY_PASSWORD}}" | docker login {{.CI_REGISTRY}} -u "{{.CI_REGISTRY_USER}}" --password-stdin
+        else
+          echo "No registry credentials provided, skipping login"
+        fi
+      - |
+        if command -v docker >/dev/null 2>&1; then
+          echo "Docker available, publishing container image"
+          # Add Docker build and push commands here
+          # docker build -t {{.CI_REGISTRY_IMAGE}}:{{.PUBLISH_TAG}} .
+          # docker push {{.CI_REGISTRY_IMAGE}}:{{.PUBLISH_TAG}}
+        else
+          echo "Docker not available, publishing artifacts only"
+          # Add alternative publishing method here
+        fi
+      - echo "Publish completed successfully"
+
+  deploy:
+    desc: Deploy the published artifacts
+    deps: [publish]
+    cmds:
+      - echo 'Deploying {{.PROJECT_NAME}} from {{.CI_REGISTRY_IMAGE}}:{{.PUBLISH_TAG}}'
+      - |
+        case "{{.BUILD_ENV}}" in
+          "production")
+            echo "Deploying to production environment"
+            # Add production deployment commands here
+            ;;
+          "staging")
+            echo "Deploying to staging environment"
+            # Add staging deployment commands here
+            ;;
+          "development")
+            echo "Deploying to development environment"
+            # Add development deployment commands here
+            ;;
+          *)
+            echo "No deployment configured for environment: {{.BUILD_ENV}}"
+            ;;
+        esac
+      - echo "Deployment completed successfully"
+
+  ci-pipeline:
+    desc: Run complete CI pipeline (init -> build -> publish)
+    cmds:
+      - task: init
+      - task: build
+      - task: publish
+
+  cd-pipeline:
+    desc: Run complete CD pipeline (init -> build -> publish -> deploy)
+    cmds:
+      - task: init
+      - task: build
+      - task: publish
+      - task: deploy
+
+  # Environment Management
+  env-load:
+    desc: Load and display environment variables
+    cmds:
+      - echo 'Current environment {{.BUILD_ENV}}'
+      - echo 'Project {{.PROJECT_NAME}}'
+      - echo 'Output {{.BUILD_OUTPUT_DIR}}'
+      - echo 'Registry {{.CI_REGISTRY}}'
+      - echo 'Image {{.CI_REGISTRY_IMAGE}}:{{.PUBLISH_TAG}}'
+      - |
+        if [ -f "../.env.local" ]; then
+          echo "Local overrides found in .env.local"
+        fi
+
+  env-check:
+    desc: Check environment configuration
+    cmds:
+      - echo "Checking environment configuration..."
+      - |
+        required_vars="PROJECT_NAME BUILD_OUTPUT_DIR CI_REGISTRY_IMAGE"
+        for var in $required_vars; do
+          value=$(eval echo \$${var})
+          if [ -z "$value" ]; then
+            echo "❌ Required variable $var is not set"
+          else
+            echo "✅ $var = $value"
+          fi
+        done
+
+  default:
+    desc: Show available task management tasks
+    cmds:
+      - task --list
+
+  validate:
+    desc: Validate task files
+    cmds:
+      - echo "Validating task files"
+      - |
+        for file in *.yml *.yaml; do
+          if [ -f "$file" ]; then
+            echo "Validating $file"
+            task --taskfile="$file" --list-all > /dev/null || echo "Error in $file"
+          fi
+        done
+      - echo "Validation complete"
+
+  setup:
+    desc: Setup task management directory structure
+    cmds:
+      - task: init
+
+  clean:
+    desc: Clean task artifacts
+    cmds:
+      - echo "Cleaning task artifacts"
+      - rm -rf  {{.TASKS_DIR}}/.task-cache/ || true
+      - rm -rf {{.TASKS_DIR}}/temp/ || true
+
+  install:
+    desc: Install Task runner
+    cmds:
+      - echo "Installing Task runner"
+      - |
+        if command -v task >/dev/null 2>&1; then
+          echo "Task is already installed"
+          task --version
+        else
+          echo "Install Task from: https://taskfile.dev/installation/"
+          echo "Or use: brew install go-task/tap/go-task"
+        fi
+
+  create-template:
+    desc: Create a task template
+    cmds:
+      - |
+        cat > templates/basic-task.yml << 'EOF'
+        version: '3'
+
+        vars:
+          PROJECT_NAME: my-project
+
+        tasks:
+          default:
+            desc: Show available tasks
+            cmds:
+              - task --list
+
+          setup:
+            desc: Setup project
+            cmds:
+              - echo "Setting up {{.PROJECT_NAME}}"
+
+          build:
+            desc: Build project
+            cmds:
+              - echo "Building {{.PROJECT_NAME}}"
+
+          test:
+            desc: Test project
+            cmds:
+              - echo "Testing {{.PROJECT_NAME}}"
+
+          clean:
+            desc: Clean project
+            cmds:
+              - echo "Cleaning {{.PROJECT_NAME}}"
+        EOF
+      - echo "Created basic task template in templates/basic-task.yml"
+
+  lint:
+    desc: Lint task files
+    cmds:
+      - echo "Linting task files"
+      - |
+        for file in *.yml *.yaml; do
+          if [ -f "$file" ]; then
+            echo "Checking syntax of $file"
+            task --taskfile="$file" --list > /dev/null || echo "Syntax error in $file"
+          fi
+        done
+
+  docs:
+    desc: Generate task documentation
+    cmds:
+      - echo "Generating task documentation"
+      - |
+        echo "# Task Documentation" > TASKS.md
+        echo "" >> TASKS.md
+        for file in *.yml *.yaml; do
+          if [ -f "$file" ]; then
+            echo "## Tasks in $file" >> TASKS.md
+            task --taskfile="$file" --list >> TASKS.md
+            echo "" >> TASKS.md
+          fi
+        done
+      - echo "Documentation generated in TASKS.md"
+
+  status:
+    desc: Show task management status
+    cmds:
+      - echo "Task Management Configuration"
+      - echo "Directory {{.TASKS_DIR}}"
+      - |
+        if [ "$(basename "$PWD")" != ".tasks" ]; then
+          echo "Changing to .tasks directory"
+          cd .tasks
+        fi     
+      - ls -la templates/ 2>/dev/null || echo "No templates found"
+      - ls -la scripts/ 2>/dev/null || echo "No scripts found"
+      - ls -la configs/ 2>/dev/null || echo "No configs found"
+      - ls -la *.yml *.yaml 2>/dev/null || echo "No task files found"
+      - |
+        if command -v task >/dev/null 2>&1; then
+          echo "Task runner version: $(task --version)"
+        else
+          echo "Task runner not installed"
+        fi
+      - |
+        if [ "$(basename "$PWD")" = ".tasks" ]; then
+          echo "In .tasks directory, changing to parent"
+          cd ..
+        fi

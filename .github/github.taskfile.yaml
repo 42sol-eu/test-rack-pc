@@ -1,0 +1,144 @@
+version: '3'
+
+vars:
+  GITHUB_DIR: .github
+
+includes:
+  tasks: ../.tasks/taskdev.yaml
+
+tasks:
+  # GitHub Actions CI/CD Tasks
+  ci:
+    desc: Run GitHub Actions CI pipeline
+    env:
+      BUILD_ENV: ci
+      CI_PROVIDER: github
+    cmds:
+      - task: tasks:env-check
+      - task: tasks:ci-pipeline
+
+  build:
+    desc: Build for GitHub Actions
+    env:
+      BUILD_ENV: ci
+      CI_PROVIDER: github
+    cmds:
+      - task: tasks:build
+
+  publish:
+    desc: Publish to GitHub Container Registry
+    env:
+      BUILD_ENV: ci
+      CI_PROVIDER: github
+    cmds:
+      - task: tasks:publish
+
+  deploy:
+    desc: Deploy via GitHub Actions
+    env:
+      BUILD_ENV: ci
+      CI_PROVIDER: github
+    cmds:
+      - task: tasks:deploy
+
+  create-workflow:
+    desc: Create basic GitHub Actions workflow
+    cmds:
+      - mkdir -p workflows
+      - |
+        cat > workflows/ci.yml << 'EOF'
+        name: CI
+
+        on:
+          push:
+            branches: [ main, develop ]
+          pull_request:
+            branches: [ main ]
+
+        env:
+          BUILD_ENV: ci
+          CI_PROVIDER: github
+
+        jobs:
+          build:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+              
+              - name: Setup Environment
+                run: |
+                  cp .github/.env .env.local
+
+              - name: Install Task
+                uses: arduino/setup-task@v1
+                with:
+                  version: 3.x
+                  repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+              - name: Run CI Pipeline
+                run: task github:ci
+                env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  CI_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+                  CI_REGISTRY_USER: ${{ github.actor }}
+        EOF
+      - echo 'Created GitHub Actions CI workflow'
+
+  default:
+    desc: Show available GitHub Actions tasks
+    cmds:
+      - task --list
+
+  validate:
+    desc: Validate GitHub Actions workflow files
+    cmds:
+      - echo "Validating GitHub Actions workflows"
+      - |
+        for file in workflows/*.yml workflows/*.yaml; do
+          if [ -f "$file" ]; then
+            echo "Validating $file"
+            # Add actual validation when workflows exist
+          fi
+        done
+      - echo "Validation complete"
+
+  setup:
+    desc: Setup GitHub Actions directory structure
+    cmds:
+      - mkdir -p workflows
+      - mkdir -p ISSUE_TEMPLATE
+      - mkdir -p PULL_REQUEST_TEMPLATE
+      - echo "GitHub Actions directory structure created"
+
+  clean:
+    desc: Clean GitHub Actions artifacts
+    cmds:
+      - echo "Cleaning GitHub Actions artifacts"
+      - rm -rf .github-cache/ || true
+
+  lint:
+    desc: Lint GitHub Actions workflow files
+    cmds:
+      - echo "Linting GitHub Actions workflows"
+      - echo "Install actionlint for proper linting: https://github.com/rhymond/actionlint"
+
+  test:
+    desc: Test GitHub Actions workflows locally
+    cmds:
+      - echo "Testing GitHub Actions workflows"
+      - echo "Install act for local testing: https://github.com/nektos/act"
+
+  secrets:
+    desc: List required secrets for workflows
+    cmds:
+      - echo "Required GitHub Secrets:"
+      - echo "  (Add secrets as workflows are created)"
+
+  status:
+    desc: Show GitHub Actions status
+    cmds:
+      - echo "GitHub Actions Configuration"
+      - echo "Directory {{.GITHUB_DIR}}"
+      - ls -la workflows/ 2>/dev/null || echo "No workflows directory found"
+      - ls -la ISSUE_TEMPLATE/ 2>/dev/null || echo "No issue templates found"
+      - ls -la PULL_REQUEST_TEMPLATE/ 2>/dev/null || echo "No PR templates found"

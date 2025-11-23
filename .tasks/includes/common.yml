@@ -1,0 +1,52 @@
+version: '3'
+
+# Common tasks and utilities
+tasks:
+  check-docker:
+    desc: Check if Docker is available
+    cmds:
+      - |
+        if command -v docker >/dev/null 2>&1; then
+          echo "✅ Docker is available"
+          docker --version
+        else
+          echo "❌ Docker is not installed"
+          exit 1
+        fi
+
+  check-git:
+    desc: Check if Git is available and configured
+    cmds:
+      - |
+        if command -v git >/dev/null 2>&1; then
+          echo "✅ Git is available"
+          git --version
+          git config user.name || echo "⚠️  Git user.name not configured"
+          git config user.email || echo "⚠️  Git user.email not configured"
+        else
+          echo "❌ Git is not installed"
+          exit 1
+        fi
+
+  check-env:
+    desc: Check environment setup
+    cmds:
+      - task: check-git
+      - task: check-docker
+
+  timestamp:
+    desc: Generate timestamp
+    cmds:
+      - echo "$(date -u +%Y%m%d-%H%M%S)"
+
+  version:
+    desc: Get project version
+    cmds:
+      - |
+        if [ -n "{{.PROJECT_VERSION}}" ]; then
+          echo "{{.PROJECT_VERSION}}"
+        elif [ -f "package.json" ]; then
+          grep '"version"' package.json | cut -d'"' -f4
+        else
+          echo "1.0.0"
+        fi

@@ -1,2 +1,4 @@
-# README .tasks
-- [.tasks]([https://tasksfile.dev/docs/guide)
+# README `.tasks`
+- [.tasks](https://tasksfile.dev/docs/guide)
+
+## Information

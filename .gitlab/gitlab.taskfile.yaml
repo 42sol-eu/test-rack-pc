@@ -1,0 +1,174 @@
+version: '3'
+
+vars:
+  GITLAB_DIR: .gitlab
+
+includes:
+  tasks: ../.tasks/taskfile.yaml
+
+tasks:
+  default:
+    desc: Show available GitLab CI tasks
+    cmds:
+      - task --list
+
+  # GitLab CI/CD Tasks
+  ci:
+    desc: Run GitLab CI pipeline
+    env:
+      BUILD_ENV: ci
+      CI_PROVIDER: gitlab
+    cmds:
+      - task: tasks:env-check
+      - task: tasks:ci-pipeline
+
+  build:
+    desc: Build for GitLab CI
+    env:
+      BUILD_ENV: ci
+      CI_PROVIDER: gitlab
+    cmds:
+      - task: tasks:build
+
+  publish:
+    desc: Publish to GitLab Container Registry
+    env:
+      BUILD_ENV: ci
+      CI_PROVIDER: gitlab
+    cmds:
+      - task: tasks:publish
+
+  deploy:
+    desc: Deploy via GitLab CI
+    env:
+      BUILD_ENV: ci
+      CI_PROVIDER: gitlab
+    cmds:
+      - task: tasks:deploy
+
+  create-ci:
+    desc: Create GitLab CI configuration
+    cmds:
+      - |
+        cat > ../.gitlab-ci.yml << 'EOF'
+        # GitLab CI Configuration
+        stages:
+          - test
+          - build
+          - publish
+          - deploy
+
+        variables:
+          BUILD_ENV: ci
+          CI_PROVIDER: gitlab
+
+        before_script:
+          - cp .gitlab/.env .env.local
+          - |
+            if ! command -v task >/dev/null 2>&1; then
+              curl -sL https://taskfile.dev/install.sh | sh
+              mv ./bin/task /usr/local/bin/
+            fi
+
+        test:
+          stage: test
+          script:
+            - task gitlab:validate
+            - task test
+          only:
+            - main
+            - develop
+            - merge_requests
+
+        build:
+          stage: build
+          script:
+            - task gitlab:build
+          artifacts:
+            paths:
+              - dist/
+            expire_in: 1 hour
+          only:
+            - main
+            - develop
+
+        publish:
+          stage: publish
+          script:
+            - task gitlab:publish
+          dependencies:
+            - build
+          only:
+            - main
+
+        deploy:
+          stage: deploy
+          script:
+            - task gitlab:deploy
+          dependencies:
+            - publish
+          only:
+            - main
+          when: manual
+        EOF
+      - echo 'Created GitLab CI configuration'
+
+  validate:
+    desc: Validate GitLab CI configuration
+    cmds:
+      - echo 'Validating GitLab CI configuration'
+      - |
+        if [ -f "../.gitlab-ci.yml" ]; then
+          echo 'Found .gitlab-ci.yml'
+          # Add actual validation when CI file exists
+        else
+          echo 'No .gitlab-ci.yml found in project root'
+        fi
+      - echo 'Validation complete'
+
+  setup:
+    desc: Setup GitLab CI directory structure
+    cmds:
+      - mkdir -p ci-templates
+      - mkdir -p issue_templates
+      - mkdir -p merge_request_templates
+      - echo 'GitLab CI directory structure created'
+
+  clean:
+    desc: Clean GitLab CI artifacts
+    cmds:
+      - echo 'Cleaning GitLab CI artifacts'
+      - rm -rf .gitlab-cache/ || true
+
+  lint:
+    desc: Lint GitLab CI configuration files
+    cmds:
+      - echo 'Linting GitLab CI configuration'
+      - |
+        if [ -f "../.gitlab-ci.yml" ]; then
+          echo 'Use GitLab CI Lint: https://docs.gitlab.com/ee/ci/lint.html'
+        else
+          echo 'No .gitlab-ci.yml found to lint'
+        fi
+
+  test:
+    desc: Test GitLab CI pipelines locally
+    cmds:
+      - echo 'Testing GitLab CI pipelines'
+      - echo 'Install gitlab-runner for local testing: https://docs.gitlab.com/runner/install/'
+
+  variables:
+    desc: List required variables for pipelines
+    cmds:
+      - echo 'Required GitLab Variables:'
+      - echo '  (Add variables as pipelines are created)'
+
+  status:
+    desc: Show GitLab CI status
+    cmds:
+      - echo 'GitLab CI Configuration'
+      - echo 'Directory {{.GITLAB_DIR}}'
+      - ls -la ci-templates/ 2>/dev/null || echo 'No CI templates found'
+      - ls -la issue_templates/ 2>/dev/null || echo 'No issue templates found'
+      - ls -la merge_request_templates/ 2>/dev/null || echo 'No MR templates found'
+      - ls -la ../.gitlab-ci.yml 2>/dev/null || echo 'No .gitlab-ci.yml found in project root'

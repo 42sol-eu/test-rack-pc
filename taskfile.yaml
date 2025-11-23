@@ -1,0 +1,124 @@
+version: '3'
+
+dotenv:
+  - '.env'
+  - '.env.{{.BUILD_ENV | default "development"}}'
+  - '.env.local'
+
+vars:
+  PROJECT_NAME: '{{.PROJECT_NAME | default "test-rack-pc"}}'
+  PROJECT_ROOT: .
+
+includes:
+  tasks: .tasks/Taskfile.yaml
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  setup:
+    desc: Setup the project development environment
+    cmds:
+      - task: tasks:init
+      - echo 'Setting up {{.PROJECT_NAME}} development environment'
+      - git config --local core.hooksPath .githooks || true
+      - echo 'Project setup complete'
+
+  init:
+    desc: Initialize project (alias for tasks:init)
+    cmds:
+      - task: tasks:init
+
+  build:
+    desc: Build project (alias for tasks:build)
+    cmds:
+      - task: tasks:build
+
+  publish:
+    desc: Publish project (alias for tasks:publish)
+    cmds:
+      - task: tasks:publish
+
+  deploy:
+    desc: Deploy project (alias for tasks:deploy)
+    cmds:
+      - task: tasks:deploy
+
+  ci:
+    desc: Run CI pipeline
+    cmds:
+      - task: tasks:ci-pipeline
+
+  cd:
+    desc: Run CD pipeline
+    cmds:
+      - task: tasks:cd-pipeline
+
+  env:
+    desc: Show environment configuration
+    cmds:
+      - task: tasks:env-load
+
+  clean:
+    desc: Clean build artifacts and temporary files
+    cmds:
+      - echo 'Cleaning {{.PROJECT_NAME}}'
+      - rm -rf dist/ build/ *.log || true
+      - task: tasks:clean
+      - echo 'Clean complete'
+
+  test:
+    desc: Run all tests
+    cmds:
+      - echo 'Running tests for {{.PROJECT_NAME}}'
+      - echo 'No tests configured yet'
+
+  lint:
+    desc: Run linting checks
+    cmds:
+      - echo 'Running lint checks for {{.PROJECT_NAME}}'
+      - echo 'No linting configured yet'
+
+  format:
+    desc: Format code
+    cmds:
+      - echo 'Formatting code for {{.PROJECT_NAME}}'
+      - echo 'No formatting configured yet'
+
+  docs:
+    desc: Generate documentation
+    cmds:
+      - echo 'Generating documentation for {{.PROJECT_NAME}}'
+      - echo 'Documentation available in README.md'
+
+  github:
+    desc: Run GitHub Actions related tasks
+    dir: .github
+    cmds:
+      - task --taskfile taskdev.yaml
+
+  gitlab:
+    desc: Run GitLab CI related tasks
+    dir: .gitlab
+    cmds:
+      - task --taskfile taskdev.yaml
+
+  tasks:
+    desc: Run task management related tasks
+    dir: .tasks
+    cmds:
+      - task --taskfile taskdev.yaml
+
+  status:
+    desc: Show project status
+    cmds:
+      - echo 'Project {{.PROJECT_NAME}}'
+      - echo 'Location {{.PROJECT_ROOT}}'
+      - task: tasks:env-check
+      - git status --porcelain || echo 'Not a git repository'
+      - echo 'Available tools:'
+      - echo '  - GitHub Actions (.github/)'
+      - echo '  - GitLab CI (.gitlab/)'
+      - echo '  - Task management (.tasks/)'
